@@ -1,28 +1,31 @@
-const express = require("./$node_modules/express");
-const bodyParser = require("./$node_modules/body-parser"); // Import body-parser
-const session = require("./$node_modules/express-session"); // Import express-session
-const cookieParser = require("./$node_modules/cookie-parser"); // Import cookie-parser
+const express = require("express");
+const bodyParser = require("body-parser"); // Import body-parser
+const session = require("express-session"); // Import express-session
+const cookieParser = require("cookie-parser"); // Import cookie-parser
 // npm install prisma --save-dev
 
 // npx prisma init --datasource-provider sqlite
-const { PrismaClient } = require("./$node_modules/@prisma/client/default");
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 // Wird für das PW hashing genutzt
 // npm install bcrypt
-const bcrypt = require("./$node_modules/bcrypt/bcrypt");
+const bcrypt = require("bcrypt/bcrypt");
 
-const cors = require("./$node_modules/cors/lib");
-const multer = require("./$node_modules/multer");
+const cors = require("cors/lib");
+const multer = require("multer");
 
 const port = 3000;
 let app = express();
+
+
 
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(cookieParser()); // Use cookie-parser middleware
 app.use(session({
+    name: "sessionCookieSponsoredByDAS22272", // Set a name for the session cookie
     secret: process.env.BACKEND_SECRET, // Using environment variable for secret key
     cookie: { secure: false, maxAge: 6e6 }, // Set secure to true if using HTTPS
     resave: true,
@@ -43,14 +46,22 @@ const upload = multer({
     },
     // Hier können Dinge wie akzeptierte Dateiformate eingestellt werden
 });
+const requireAuthentication = (req, res, next) => {
+    console.log(req.session.user);
+    if (!req.session.user) return res.status(401).send("Unauthorized");
+    next();
+  };
 
 app.get("/", function (req, res) {
     res.sendFile("index.html", { root: __dirname });
 });
+app.get("/style.css", function (req, res) {
+    res.sendFile("style.css", { root: __dirname });
+});
 
 app.get("/test", function (req, res) {
     if (!req.session.user) {
-        return res.status(401).send("unauthorized");
+        return res.status(401).send("Unauthorized");
     }
     return res.json(req.session.user);
 });
@@ -128,7 +139,7 @@ app.post("/login", async function (req, res) {
     }
 });
 
-app.post("/menu", async function (req, res) {
+app.post("/menu", requireAuthentication, async function (req, res) {
     const drink = req.body;
     const result = await prisma.drink.create({
         data: drink,
@@ -136,7 +147,7 @@ app.post("/menu", async function (req, res) {
     res.send(result);
 });
 
-app.get("/menu", async function (req, res) {
+app.get("/menu", requireAuthentication, async function (req, res) {
     const drinks = await prisma.drink.findMany();
     res.json(drinks);
 });
@@ -235,7 +246,8 @@ app.get("/order", async function (req, res) {
             drinks: {
                 include: {
                     // Inkludiere den Drink in der Zwischentabelle
-                    drink: true,
+                    Drink: true,
+         
                 },
             },
         },
@@ -284,8 +296,8 @@ app.delete("/order/:id", async function (req, res) {
 });
 
 app.patch("/order/:id", async function (req, res) {
-    let id = req.params.id;
-    let updatedOrder = req.body;
+    const id = req.params.id;
+    const updatedOrder = req.body;
 
     try {
         await prisma.orderDrink.deleteMany({
@@ -319,6 +331,18 @@ app.patch("/order/:id", async function (req, res) {
         res.status(404).json({ error: "Failed to update order" });
     }
 });
+app.post("/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Session destruction error:", err);
+        return res.status(500).send("Error logging out");
+      }
+   
+      res.clearCookie("sessionCookieSponsoredByDAS22272.sid");
+      res.send("Logout successful");
+    });
+  });
+  
 
 app.listen(port, function () {
     console.log("Server started");

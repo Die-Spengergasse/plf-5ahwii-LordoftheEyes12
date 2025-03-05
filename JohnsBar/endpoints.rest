@@ -24,3 +24,11 @@ Cache-Control: no-store
 Cookie: connect.sid=s%3AF5rrg2pVut7Is0lkr7GVrq-nYnAOKD6C.406Iu0lMaNpbFMWeCYJC0f2w70nlTVniblIBuxH4UIM; Path=/; Expires=Wed, 26 Feb 2025 16:38:29 GMT; HttpOnly
 ###
 
+GET http://localhost:3000/order
+###
+
+POST http://localhost:3000/logout
+###
+
+GET http://localhost:3000/test
+
